@@ -1,0 +1,36 @@
+# Descripción del dataset
+
+El conjunto de datos que vamos a tratar recoge una serie de variables relacionadas con el ataque al corazón. 
+
+El objetivo es tratar de clasificar si una persona tiene más o menos posibilidades de tener un ataque al corazón en función de las características estudiadas.
+
+Tenemos un dataset con 14 variables y 303 observaciones.
+
+**age**: Edad del paciente
+**sex**: Sexo del paciente
+**cp**: Tipo de dolor en el pecho, categorizado en:
+  - 1: typical angina (dolor típico)  
+  - 2: atypical angina (dolor atípico)  
+  - 3: non-anginal pain (dolor no relacionado con la angina de pecho)  
+  - 0: asymptomatic (asintomático)  
+**trtbps**: presión arterial en reposo (in mm Hg)
+**chol**: colesterol mg/dl obtenido a través del sensor BMI
+**thall**:
+  - 1: fixed defect
+  - 2: normal
+  - 3: reversable defect
+**fbs**: (glucemia en ayunas > 120 mg/dl) (1 = true; 0 = false)
+**restecg **: resultados electrocardiográficos en reposo
+  - 1: normal
+  - 2: having ST-T wave abnormality (T wave inversions and/or ST elevation or depression of > 0.05 mV) tener anomalías en la onda ST-T (inversiones de la onda T y/o elevación o depresión del ST > 0,05 mV)
+  - 0: showing probable or definite left ventricular hypertrophy by Estes' criteria (que muestra hipertrofia ventricular izquierda probable o definitiva según los criterios de Estes)
+**thalachh**: frecuencia cardíaca máxima alcanzada
+**exng**: exercise induced angina (1 = yes; 0 = no)
+**oldpeak**: Depresión del ST inducida por el ejercicio en relación con el reposo
+**slp**: La pendiente del segmento ST de ejercicio máximo
+**caa**: Número de vasos principales (0-4)
+**output**:
+  - 0 = menos posibilidades de ataque al corazon
+  - 1 = más posibilidades de ataque al corazon
+  
+Para discernir cuáles eran las variables y sus valores se consultó la siguiente [discusión](https://www.kaggle.com/datasets/rashikrahmanpritom/heart-attack-analysis-prediction-dataset/discussion/234843) 
