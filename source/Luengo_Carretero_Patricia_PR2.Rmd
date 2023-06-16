@@ -1,0 +1,677 @@
+---
+title: "Tratamiento del dataset Heart Attack Analysis & Prediction"
+author: "Patricia Luengo Carretero"
+date: "16/06/2023"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r, include = FALSE}
+# Librería dplyr que nos permite transformar los datos
+if (!require('ggplot2')) install.packages('ggplot2');
+library(ggplot2)
+
+# Librería dplyr que nos permite transformar los datos
+if (!require('dplyr')) install.packages('dplyr');
+library(dplyr)
+
+# Librería cowplot que nos permite transformar los datos
+if (!require('cowplot')) install.packages('cowplot');
+library(cowplot)
+
+if (!require('reshape2')) install.packages('reshape2');
+library(reshape2)
+
+if (!require('corrplot')) install.packages('corrplot');
+library(corrplot)
+
+if (!require('psych')) install.packages('psych');
+library(psych)
+
+if (!require('lubridate')) install.packages('lubridate');
+library(lubridate)
+
+# Librería stringi que nos permite tratar los acentos
+if (!require('stringi')) install.packages('stringi');
+library(stringi)
+
+# Librería stringr para tratar las variables tipo string
+if (!require('stringr')) install.packages('stringr');
+library(stringr)
+
+# Librería para aplicar test
+if (!require('car')) install.packages('car');
+library(car)
+
+if (!require('tidyr')) install.packages('tidyr');
+library(tidyr)
+
+if (!require('caret')) install.packages("caret")
+library(caret)
+
+if (!require('rpart')) install.packages('rpart');
+library(rpart)
+
+if (!require('rpart.plot')) install.packages('rpart.plot');
+library(rpart.plot)
+
+if (!require('patchwork')) install.packages('patchwork');
+library(patchwork)
+```
+
+
+# 0. Importación del dataset
+
+Cargamos el conjunto de datos a estudiar y mostramos la cabecera:
+
+```{r}
+library(readr)
+heart <- read_csv("C:/Users/patri/OneDrive/Documentos/MEGAsync/Ciencia de Datos Master/Tipología y ciclo de vida de los datos/PR2/heart.csv")
+head(heart)
+```
+
+# 1. Descripción del dataset
+
+El conjunto de datos que vamos a tratar recoge una serie de variables relacionadas con el ataque al corazón. 
+
+El objetivo es tratar de clasificar si una persona tiene más o menos posibilidades de tener un ataque al corazón en función de las características estudiadas.
+
+Tenemos un dataset con 14 variables y 303 observaciones.
+
+**age**: Edad del paciente
+**sex**: Sexo del paciente
+**cp**: Tipo de dolor en el pecho, categorizado en:
+  - 1: typical angina (dolor típico)  
+  - 2: atypical angina (dolor atípico)  
+  - 3: non-anginal pain (dolor no relacionado con la angina de pecho)  
+  - 0: asymptomatic (asintomático)  
+**trtbps**: presión arterial en reposo (in mm Hg)
+**chol**: colesterol mg/dl obtenido a través del sensor BMI
+**thall**:
+  - 1: fixed defect
+  - 2: normal
+  - 3: reversable defect
+**fbs**: (glucemia en ayunas > 120 mg/dl) (1 = true; 0 = false)
+**restecg **: resultados electrocardiográficos en reposo
+  - 1: normal
+  - 2: having ST-T wave abnormality (T wave inversions and/or ST elevation or depression of > 0.05 mV) tener anomalías en la onda ST-T (inversiones de la onda T y/o elevación o depresión del ST > 0,05 mV)
+  - 0: showing probable or definite left ventricular hypertrophy by Estes' criteria (que muestra hipertrofia ventricular izquierda probable o definitiva según los criterios de Estes)
+**thalachh**: frecuencia cardíaca máxima alcanzada
+**exng**: exercise induced angina (1 = yes; 0 = no)
+**oldpeak**: Depresión del ST inducida por el ejercicio en relación con el reposo
+**slp**: La pendiente del segmento ST de ejercicio máximo
+**caa**: Número de vasos principales (0-4)
+**output**:
+  - 0 = menos posibilidades de ataque al corazon
+  - 1 = más posibilidades de ataque al corazon
+  
+Para discernir cuáles eran las variables y sus valores se consultó la siguiente [discusión](https://www.kaggle.com/datasets/rashikrahmanpritom/heart-attack-analysis-prediction-dataset/discussion/234843) 
+
+
+```{r}
+dim(heart)
+```
+
+```{r}
+str(heart)
+```
+
+# 2. Integración y selección
+
+Tenemos tres variables que desconocemos de que se tratan, asi que no las vamos a utilizar:
+
+```{r}
+heart <- select(heart, -thall, -oldpeak, -slp)
+dim(heart)
+```
+
+Renombramos los nombres de las columnas:
+
+```{r}
+colnames(heart) <- c('edad', 'sexo', 'dolor', 'presion_arterial', 'colesterol',
+                     'glucemia', 'electro', 'frec_cardiaca', 'ejercicio', 'vasos', 'ataque')
+```
+
+Renombramos los niveles de los datos categóricos:
+
+```{r}
+heart$sexo[heart$sexo==1]<- "hombre"
+heart$sexo[heart$sexo==0]<- "mujer"
+heart$dolor[heart$dolor==1] <- "tipico"
+heart$dolor[heart$dolor==2] <- "atipico"
+heart$dolor[heart$dolor==3] <- "no_relacionado"
+heart$dolor[heart$dolor==0] <- "asintomatico"
+heart$electro[heart$electro==1] <- "normal"
+heart$electro[heart$electro==2] <- "anomalias"
+heart$electro[heart$electro==0] <- "hipertrofia"
+heart$ejercicio[heart$ejercicio==1] <- "si"
+heart$ejercicio[heart$ejercicio==0] <- "no"
+heart$glucemia[heart$glucemia==1] <- "tiene_glucemia"
+heart$glucemia[heart$glucemia==0] <- "no_tiene_glucemia"
+heart$vasos[heart$vasos==0] <- "cero"
+heart$vasos[heart$vasos==1] <- "uno"
+heart$vasos[heart$vasos==2] <- "dos"
+heart$vasos[heart$vasos==3] <- "tres"
+heart$vasos[heart$vasos==4] <- "cuatro"
+```
+
+
+Modificamos el tipo de cada una de las variables en el caso de las variables categoricas las categorizamos:
+
+```{r}
+heart$sexo <- factor(heart$sexo)
+heart$dolor <- factor(heart$dolor)
+heart$glucemia <- factor(heart$glucemia)
+heart$electro <- factor(heart$electro)
+heart$ejercicio <- factor(heart$ejercicio)
+heart$vasos <- factor(heart$vasos)
+```
+
+
+# 3 Limpieza de los datos
+
+Observamos que el dataset no tiene NA's salvo en el atributo vasos que al ser practicamente la totalidad de los registros hace que tengamos que eliminar la variable ya que con tan pocos datos no podemos hacer nada por imputarla.
+
+```{r}
+summary(heart)
+```
+
+
+En cuanto a los nulos hay que tener en cuenta que hay diversas variables que son categóricas, sexo, fbs, cp, exang, restecg, exng y output, por tanto en esos casos es lógico que haya ceros y cuando sea necesario se hará una factorización de los mismos.
+
+Por otro lado, las variables age, trtbps, chol y thalachh son numéricas que tal y como puede observarse en el summary tiene valores minimos que difieren de cero, asi que no tenemos datos numéricos con valor cero.
+
+
+**Valores extremos de la edad**
+
+Dibujamos un diagrama de caja para estudiar la variable presion arterial:
+
+```{r}
+outliersEdad <- boxplot(heart$edad)$out
+```
+
+Observamos que la variable no presenta valores extremos.
+
+**Valores extremos de la presión arterial en reposo**
+
+Dibujamos un diagrama de caja para estudiar la variable presion arterial:
+
+```{r}
+outliersPres <- boxplot(heart$presion_arterial)$out
+```
+
+Observamos que la variable presenta valores extremos, asi que los visualizamos:
+
+```{r}
+outliersPres
+```
+
+Aunque son valores extremos se dan por legítimos ya que quizá sea un indicador de ataque al corazón.
+
+
+**Valores extremos del colesterol**
+
+Dibujamos un diagrama de caja para estudiar la variable colesterol:
+
+```{r}
+outliersCol <- boxplot(heart$colesterol)$out
+```
+
+```{r}
+outliersCol
+```
+
+Aunque son valores extremos se dan por legítimos ya que quizá sea un indicador de ataque al corazón, salvo el dato de 564 que si parece ser un dato atipico y se elimina.
+
+```{r}
+heart <- heart[-which(heart$colesterol == 564),]
+```
+
+
+**Valores extremos del frecuencia cardíaca**
+
+Dibujamos un diagrama de caja para estudiar la variable colesterol:
+
+```{r}
+outliersFrec <- boxplot(heart$frec_cardiaca)$out
+```
+
+
+```{r}
+outliersFrec
+```
+
+Eliminamos el dato
+
+```{r}
+heart <- heart[-which(heart$frec_cardiaca == 71),]
+```
+
+
+# 4. Análisis de los datos
+
+## 4.1. Selección de los grupos de datos que se quieren comparar
+
+Agrupamos por un lado los datos numéricos y por otro los categóricos.
+
+```{r}
+heartNumerico <- select(heart, edad, presion_arterial, colesterol, frec_cardiaca, ataque)
+head(heartNumerico)
+```
+
+```{r}
+heartCategorico <- select(heart, sexo, dolor, glucemia, electro, ejercicio, vasos, ataque)
+heartCategorico$ataque[heartCategorico$ataque==1] <- "Si"
+heartCategorico$ataque[heartCategorico$ataque==0] <- "No"
+head(heartCategorico)
+```
+
+## 4.2. Variables numéricas.
+
+### 4.2.1. Análisis univariante
+
+**Estudio de la normalidad de las variables**
+
+Estudiamos la normalidad de las variables, para ello se aplica el test de Shapiro-Wilk donde:
+
+${H_0}:$ la población sigue una distribución normal 
+${H_1}:$ la población no sigue una distribución normal 
+
+```{r}
+shapiro.test(heartNumerico$edad)
+```
+
+```{r}
+shapiro.test(heartNumerico$presion_arterial)
+```
+```{r}
+shapiro.test(heartNumerico$frec_cardiaca)
+```
+```{r}
+shapiro.test(heartNumerico$colesterol)
+```
+
+
+**Estudio de la homocedasticidad de las variables**
+
+Como hemos asumido que las variables siguen una distribución normal aplicamos el test de Levene.
+
+${H_0}:$ igualdad de varianzas entre los grupos 
+${H_1}:$ diferencias significativas 
+
+```{r}
+leveneTest(edad~factor(ataque), data=heartNumerico)
+```
+
+```{r}
+leveneTest(presion_arterial~factor(ataque), data=heartNumerico)
+```
+
+```{r}
+leveneTest(frec_cardiaca~factor(ataque), data=heartNumerico)
+```
+
+```{r}
+leveneTest(colesterol~factor(ataque), data=heartNumerico)
+```
+
+La presión arterial y el colesterol han dado resultados de pvalue superiores al nivel de significancia por tanto se acepta la hipótesis nula de homocedasticidad y se concluye que la variable de la presión arterial y el colesterol no presentan varianzas estadísticamente diferentes para los grupos de ataque al corazón, sin embargo, con la frecuencia cardíaca y la edad, sucede todo lo contrario.
+
+**Visualización de las variables numéricas frente a la variable respuesta**
+
+**Colesterol frente a ataque al corazón**
+
+```{r}
+ggplot(heartNumerico, mapping=aes(x=colesterol, fill = factor(ataque))) + 
+  geom_histogram(aes(y=after_stat(density)),
+                   binwidth=20, alpha=0.5,
+                   position="identity") +
+  geom_density(alpha=.2) +
+  labs(x='Colesterol', y='Frecuencia', 
+         title='Colesterol vs Ataque al corazón') +
+  scale_fill_manual(values=c(3, 2)) +
+  theme(legend.title = element_blank())
+```
+
+**Frecuencia cardiaca frente a ataque al corazón**
+
+```{r}
+ggplot(heartNumerico, mapping=aes(x=frec_cardiaca, fill = factor(ataque))) + 
+  geom_histogram(aes(y=after_stat(density)),
+                   binwidth=10, alpha=0.5,
+                   position="identity") +
+  geom_density(alpha=.2) +
+  labs(x='Frecuencia cardiaca', y='Frecuencia', 
+         title='Frecuencia cardiaca vs Ataque al corazón') +
+  scale_fill_manual(values=c(3, 2)) +
+  theme(legend.title = element_blank())
+```
+
+**Presión arterial frente a ataque al corazón**
+
+```{r}
+ggplot(heartNumerico, mapping=aes(x=presion_arterial, fill = factor(ataque))) + 
+  geom_histogram(aes(y=after_stat(density)),
+                   binwidth=10, alpha=0.5,
+                   position="identity") +
+  geom_density(alpha=.2) +
+  labs(x='Presión arterial', y='Frecuencia', 
+         title='Presión arterial vs Ataque al corazón') +
+  scale_fill_manual(values=c(3, 2)) +
+  theme(legend.title = element_blank())
+```
+
+
+**Edad frente a ataque al corazón**
+
+```{r}
+ggplot(heartNumerico, mapping=aes(x=edad, fill = factor(ataque))) + 
+  geom_histogram(aes(y=after_stat(density)),
+                   binwidth=5, alpha=0.5,
+                   position="identity") +
+  geom_density(alpha=.2) +
+  labs(x='Edad', y='Frecuencia', 
+         title='Edad vs Ataque al corazón') +
+  scale_fill_manual(values=c(3, 2)) +
+  theme(legend.title = element_blank())
+```
+
+
+
+### 4.2.3. Conclusiones
+
+Los pvalores han dado como resultado valores menor al nivel de significancia por tanto se rechaza la hipótesis nula y se concluye que los datos no siguen una distribución normal. No obstante, como el conjunto de datos se compone de una muestra de registros suficientemente grande, por el teorema central del límite, se puede considerar que los datos siguen una distribución normal.
+
+La presión arterial y el colesterol han dado resultados de pvalue superiores al nivel de significancia por tanto se acepta la hipótesis nula de homocedasticidad y se concluye que la variable de la presión arterial y el colesterol no presentan varianzas estadísticamente diferentes para los grupos de ataque al corazón, sin
+embargo, con la frecuencia cardíaca y la edad, sucede todo lo contrario.
+
+En la edad se observa que al contrario de lo que se suele pensar, la edad con mayor factor de riesgo a la hora de tener un ataque al corazón se encuentra entre los 35 y 55 años.
+
+En el caso de la presión arterial es dificil decir si tieen influencia este dato con respecto a tener un ataque al corazón o no, ya que ambas gráficas son practicamente iguales.
+
+En el caso del nivel de colesterol si que encontramos un rango entre 200 y 250 que es más propenso a tener un ataque al corazón, aunque la diferencia entre las gráficas es pequeña.
+
+En el caso de la frecuencia cardíaca se observa como a medida que aumenta la frecuencia cardíaca la posibilidad de tener un infarto también lo hace.
+
+
+## 4.3. Variables categóricas.
+
+**Visualización de las variables categóricas frente a la variable respuesta**
+
+```{r}
+ggplot(data=heartCategorico, aes(x=sexo, fill = ataque)) +
+  geom_bar(position = "dodge", ) +
+  labs(x='Sexo', y='Conteo', 
+         title='Sexo vs Ataque al corazón') +
+  scale_fill_manual(values=c(3, 2)) +
+  theme(legend.title = element_blank())
+```
+
+
+
+```{r}
+ggplot(data=heartCategorico, aes(x=dolor, fill = ataque)) +
+  geom_bar(position = "dodge", ) +
+  labs(x='Tipo de dolor', y='Conteo', 
+         title='Tipo de dolor vs Ataque al corazón') +
+  scale_fill_manual(values=c(3, 2)) +
+  theme(legend.title = element_blank())
+```
+
+
+
+```{r}
+ggplot(data=heartCategorico, aes(x=glucemia, fill = ataque)) +
+  geom_bar(position = "dodge", ) +
+  labs(x='Existencia de glucemia', y='Conteo', 
+         title='Existencia de glucemia vs Ataque al corazón') +
+  scale_fill_manual(values=c(3, 2)) +
+  theme(legend.title = element_blank())
+```
+
+
+```{r}
+ggplot(data=heartCategorico, aes(x=electro, fill = ataque)) +
+  geom_bar(position = "dodge", ) +
+  labs(x='Resultados del electro', y='Conteo', 
+         title='Resultados del electro vs Ataque al corazón') +
+  scale_fill_manual(values=c(3, 2)) +
+  theme(legend.title = element_blank())
+```
+
+
+```{r}
+ggplot(data=heartCategorico, aes(x=ejercicio, fill = ataque)) +
+  geom_bar(position = "dodge", ) +
+  labs(x='Practicaba ejercicio', y='Conteo', 
+         title='Si el ataque ocurrió mientras hacía ejercicio vs Ataque al corazón') +
+  scale_fill_manual(values=c(3, 2)) +
+  theme(legend.title = element_blank())
+```
+
+
+```{r}
+ggplot(data=heartCategorico, aes(x=vasos, fill = ataque)) +
+  geom_bar(position = "dodge", ) +
+  labs(x='Nº de vasos', y='Conteo', 
+         title='Número de vasos vs Ataque al corazón') +
+  scale_fill_manual(values=c(3, 2)) +
+  theme(legend.title = element_blank())
+```
+
+**Conclusiones**
+
+Al realizar el test chi cuadrado observamos que la glucemia es la única variable categórica que presenta igualdad de frecuencias con respecto al ataque al corazón.
+
+Los hombres son quienes más sufren ataques al corazón frente a las mujeres, sin embargo ellas son las que
+más probabilidad tienen en este caso de sufrir un ataque al corazón.
+
+Aquellos pacientes que no presentan dolor alguno son los que menos probabilidades tienen de sufrir un infarto, sin embargo esto cambia totalmente cuando se presenta algún dolor atipico, titpico y no relacionado en orden de importancia.
+
+El riesgo de ataque cardiaco es ligeramente superior en aquellos pacientes que tienen glucemia.
+
+Aquellos pacientes que tuvieron un resultado del electro normal tienen mas riesgo
+de sufrir un ataque cardiaco.
+
+Los pacientes que sufrieron un ataque al corazón mientras realizaban ejercicio es muy inferior a los que no, asi que este hecho no afecta a que se produzca o no un ataque al corazón.
+
+Por último observamos que en la variable vasos también hay una gran incidencia de ataque al corazón cuando los vasos tiene un valor igual a cero.
+
+
+## 4.3. Aplicación de pruebas estadísticas para comparar los grupos de datos
+
+### 4.3.1 Correlaciones y Frecuencias
+
+**Comparación entre los datos numéricos con la variable respuesta** 
+
+Realizamos una correlación de Pearson
+
+```{r}
+heartNumerico.cor <- round(cor(heartNumerico, method='pearson'),2)
+col <- colorRampPalette(c("#884444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
+corrplot(heartNumerico.cor,
+         method='shade',
+         shade.col=NA,
+         tl.col='black',
+         col=col(200),
+         tl.cex=0.7,
+         number.cex=0.7,
+         tl.srt=45,
+         addCoef.col='black',
+         addcolorlabel='no',
+         order='AOE')
+```
+
+Observamos que la mayor correlación con el ataque cardíaco se encuentra en la frecuencia cardiaca, siguiendo una correlación positiva, lo que significa que a medida que aumenta la frecuencia cardiaca tambien se incrementa la posibilidad de sufrir ataques al corazon.
+
+Por contra la edad está correlacionada en sentido inverso, es decir, a medida que se incrementa la edad menos posibilidades existen de que se tenga un ataque al corazón.
+
+**Comparación entre los datos categóricos con la variable respuesta**
+
+Para las variables categóricas aplicamos un chi cuadrado test. En este caso las hipótesis son:
+${H_0}:$ igualdad de frecuencias entre los grupos > 0.05
+${H_1}:$ diferencias significativas < 0.05
+Es decir, que cuando el pvalor sea mayor al nivel de siginificancia estaremos ante grupos de variables cuyas frecuencias son iguales.
+
+```{r}
+heartCategorico.cor <- outer(heartCategorico, heartCategorico, Vectorize(\(x, y) chisq.test(table(x, y), sim=TRUE)$p.value))
+```
+
+
+```{r}
+col <- colorRampPalette(c("#884444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
+corrplot(heartCategorico.cor,
+         method='shade',
+         shade.col=NA,
+         tl.col='black',
+         col=col(200),
+         tl.cex=0.7,
+         number.cex=0.7,
+         tl.srt=45,
+         addCoef.col='black',
+         addcolorlabel='no',
+         order='AOE')
+```
+
+
+Si observamos los resultados de nuestra variable respuesta con respecto al resto de variables, vemos que la glucemia la unica variable categorica que presenta igualdad de frecuencias con respecto al ataque al corazón.
+
+
+### 4.3.2 Regresión lineal para los valores numéricos
+
+Como la variable de salida es una variable en realidad dicotómica usaremos una regresión logística.
+
+```{r}
+modelo <- glm(ataque ~ edad + presion_arterial + colesterol + frec_cardiaca,
+                 heartNumerico, family=binomial)
+summary(modelo)
+```
+
+A raiz de los resultados ofrecidos por el modelo observamos que la variable explicativa colesterol y edad tienen un pvalue superior al nivel de significancia por tanto no están aportando información al modelo, aunque el colesterol se encuentra cerca del nivel de significancia.
+
+
+Incluimos en el modelo un dato categorico y estudiamos sus niveles:
+
+```{r}
+heart$sexo<-relevel(heart$sexo, ref='hombre')
+modelo <- glm(ataque ~ frec_cardiaca + sexo, heart, family=binomial)
+summary(modelo)
+```
+
+Observamos que la categoria mujer es significativa y se ha mejorado el modelo pues el AIC es considerablemente menor al anterior.
+
+
+```{r}
+heart$dolor<-relevel(heart$dolor, ref='asintomatico')
+modelo <- glm(ataque ~ frec_cardiaca + dolor, heart, family=binomial)
+summary(modelo)
+```
+
+Se obtienen altas significancias y el modelo mejora con respecto al anterior.
+
+
+```{r}
+heart$electro<-relevel(heart$electro, ref='anomalias')
+modelo <- glm(ataque ~ frec_cardiaca + electro, heart, family=binomial)
+summary(modelo)
+```
+
+En la variable electro que era otra variable que habíamos visto en gráficas que influia en la posibilidad de ataque al corazón o no, vemos que no mejora el modelo.
+
+
+```{r}
+heart$ejercicio<-relevel(heart$ejercicio, ref='si')
+modelo <- glm(ataque ~ frec_cardiaca + ejercicio, heart, family=binomial)
+summary(modelo)
+```
+
+```{r}
+heart$vasos<-relevel(heart$vasos, ref='cero')
+modelo <- glm(ataque ~ frec_cardiaca + vasos, heart, family=binomial)
+summary(modelo)
+```
+
+
+Observamos que hay significancia en casi todas sus variables categoricas. Tiene el AIC más bajo de todos asi que sería el mejor modelo de regresión logista, formado por la frecuencia cardiaca como variable numérica y el el número de vasos como variable categórica.
+
+
+### 4.3.3 Modelo de aprendizaje supervisado
+
+En este caso queremos clasificar en base a los datos si se produce un ataque al corazón o no, por tanto estamos ante una variable respuesta dicotómica. Entre las variables explicativas tenemos variables de tipo numérico y categórico, asi que vamos a utilizar un Random Forest.
+
+```{r}
+heart$presion_arterial <- scale(heart$presion_arterial)
+heart$frec_cardiaca <- scale(heart$frec_cardiaca)
+heart$colesterol <- scale(heart$colesterol)
+heart$edad <- scale(heart$edad)
+```
+
+Creamos un conjunto de entrenamiento y otro de test
+
+```{r}
+# fijamos la semilla
+set.seed(123)
+# Se crean los índices de las observaciones de entrenamiento
+ind <- createDataPartition(y=heart$ataque,
+                                  p=0.8, list = FALSE, times = 1)
+
+train <- heart[ind, ]
+test <- heart[-ind, ]
+```
+
+Verificamos que la distribución de la variable respuesta HS_re es similar en el conjunto de entrenamiento y en el de test.
+
+```{r}
+#datos
+prop.table(table(heart$ataque))
+```
+
+```{r}
+#entrenamiento
+prop.table(table(train$ataque))
+```
+
+```{r}
+#test
+prop.table(table(test$ataque))
+```
+
+Creamos el árbol de decisión:
+
+```{r}
+set.seed(1234)
+rf <- rpart(train$ataque ~ .,
+                      data = train[-11],
+                      method = "class", cp = .01)
+```
+
+
+```{r}
+rpart.plot(rf, fallen.leaves = FALSE,
+                   main = "Arbol de decision ataque al corazón",
+                   shadow.col = "gray")
+```
+
+Generamos las predicciones sobre el conjunto de test:
+
+```{r}
+prediccion <- predict(rf, newdata = test, type = "class")
+```
+
+```{r}
+matrizConfusion <- confusionMatrix(factor(prediccion), factor(test$ataque), positive = "1")
+matrizConfusion
+```
+
+```{r}
+head(heart)
+```
+
+
+# 5. Escribimos el fichero
+
+```{r}
+write.csv2(heart, "heart_clean.csv", row.names = FALSE)
+```
