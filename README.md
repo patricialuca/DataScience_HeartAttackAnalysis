@@ -63,7 +63,7 @@ Para la clasificación dicotómica (`output`), se utilizó un modelo de Random F
 
 ## Contribuciones
 
-Este proyecto fue realizado por **Patricia Luengo Carretero**. Puedes ver más sobre mi trabajo en [mi sitio web personal](https://www.patricialuca.es).
+Este proyecto fue realizado por [Patricia Luengo Carretero](https://www.linkedin.com/in/patricialuca/). Puedes ver más sobre mi trabajo en [mi sitio web personal](https://www.patricialuca.es).
 
 
 
